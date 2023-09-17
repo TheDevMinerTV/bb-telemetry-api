@@ -11,6 +11,8 @@ import (
 )
 
 type TelemetrySocket struct {
+	verbose bool
+
 	conn *net.TCPConn
 	addr string
 	key  [32]byte
@@ -36,13 +38,14 @@ func generateKey() ([32]byte, error) {
 	return secret, nil
 }
 
-func NewTelemetrySocket(conn *net.TCPConn) (*TelemetrySocket, error) {
+func NewTelemetrySocket(conn *net.TCPConn, verbose bool) (*TelemetrySocket, error) {
 	secret, err := generateKey()
 	if err != nil {
 		return nil, err
 	}
 
 	return &TelemetrySocket{
+		verbose:       verbose,
 		conn:          conn,
 		addr:          conn.RemoteAddr().String(),
 		key:           secret,
@@ -78,7 +81,9 @@ func (s *TelemetrySocket) handle() {
 	for {
 		n, err := s.conn.Read(buffer)
 		if err != nil {
-			log.Printf("failed to read from %s: %s", s.addr, err)
+			if s.verbose {
+				log.Printf("failed to read from %s: %s", s.addr, err)
+			}
 			return
 		}
 
@@ -91,7 +96,9 @@ func (s *TelemetrySocket) handle() {
 
 			length := packets.ReadLength(toParse)
 			if length > len(toParse)-packets.DataLengthSize+packets.PacketTypeLength {
-				log.Printf("packet from %s is too short: need %d bytes, have %d bytes", s.addr, length+packets.DataLengthSize+packets.PacketTypeLength, len(toParse))
+				if s.verbose {
+					log.Printf("packet from %s is too short: need %d bytes, have %d bytes", s.addr, length+packets.DataLengthSize+packets.PacketTypeLength, len(toParse))
+				}
 				break
 			}
 
@@ -101,11 +108,15 @@ func (s *TelemetrySocket) handle() {
 
 			packet, err := packets.Parse(data)
 			if err != nil {
-				log.Printf("failed to parse packet from %s: %s", s.addr, err)
+				if s.verbose {
+					log.Printf("failed to parse packet from %s: %s", s.addr, err)
+				}
 				continue
 			}
 
-			log.Printf("received packet from %s: %+v", s.addr, packet.Inner)
+			if s.verbose {
+				log.Printf("received packet from %s: %d %+v", s.addr, packet.Inner.Type(), packet.Inner)
+			}
 
 			switch packet.Inner.Type() {
 			case packets.HandshakeRequestPacket:
@@ -131,7 +142,9 @@ func (s *TelemetrySocket) handle() {
 				s.valid = hmac.Equal(inner.HMAC[:], s.expectedKey)
 
 				if s.valid {
-					log.Printf("%s successfully authenticated", s.addr)
+					if s.verbose {
+						log.Printf("%s successfully authenticated", s.addr)
+					}
 
 					for _, module := range s.handshakeData.Modules {
 						runningInstances.With(map[string]string{
@@ -140,7 +153,9 @@ func (s *TelemetrySocket) handle() {
 						}).Inc()
 					}
 				} else {
-					log.Printf("%s failed to authenticate", s.addr)
+					if s.verbose {
+						log.Printf("%s failed to authenticate", s.addr)
+					}
 				}
 
 				p2 := packets.NewWrapped(&packets.StartResponse{})
@@ -150,7 +165,13 @@ func (s *TelemetrySocket) handle() {
 				}
 
 			case packets.HeartbeatRequestPacket:
-				log.Printf("%s sent heartbeat", s.addr)
+				if !s.valid {
+					return
+				}
+
+				if s.verbose {
+					log.Printf("%s sent heartbeat", s.addr)
+				}
 			}
 		}
 	}

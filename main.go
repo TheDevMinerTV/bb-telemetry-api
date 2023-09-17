@@ -19,6 +19,7 @@ var (
 
 	fTelemetryAddr = flag.String("telemetry-addr", "127.0.0.1:65500", "The address to listen for telemetry connections on")
 	fMetricsAddr   = flag.String("metrics-addr", "127.0.0.1:65501", "The address to listen for metrics requests on")
+	fVerbose       = flag.Bool("verbose", false, "Whether to log verbose messages")
 )
 
 func main() {
@@ -27,7 +28,7 @@ func main() {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(runningInstances)
 
-	telemetry := NewTelemetryServer()
+	telemetry := NewTelemetryServer(*fVerbose)
 	if err := telemetry.Listen(*fTelemetryAddr); err != nil {
 		log.Fatalf("failed to launch telemetry server: %v", err)
 	}

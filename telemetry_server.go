@@ -7,10 +7,11 @@ import (
 
 type TelemetryServer struct {
 	listener *net.TCPListener
+	verbose  bool
 }
 
-func NewTelemetryServer() *TelemetryServer {
-	return &TelemetryServer{}
+func NewTelemetryServer(verbose bool) *TelemetryServer {
+	return &TelemetryServer{verbose: verbose}
 }
 
 func (s *TelemetryServer) Listen(rawAddr string) error {
@@ -45,9 +46,11 @@ func (s *TelemetryServer) run() {
 			continue
 		}
 
-		log.Printf("accepted telemetry connection from %s", conn.RemoteAddr())
+		if s.verbose {
+			log.Printf("accepted telemetry connection from %s", conn.RemoteAddr())
+		}
 
-		sock, err := NewTelemetrySocket(conn)
+		sock, err := NewTelemetrySocket(conn, s.verbose)
 		if err != nil {
 			log.Printf("failed to create telemetry socket from %s: %s", conn.RemoteAddr(), err)
 			continue
