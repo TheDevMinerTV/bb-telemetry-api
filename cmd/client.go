@@ -6,20 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
 
-func run() {
-	modules := []packets.ModuleInfo{
-		{
-			Module:  "test",
-			Version: "1.0.0",
-		},
-	}
-
+func run(modules []packets.ModuleInfo) {
 	addr, err := net.ResolveTCPAddr("tcp", "raw.devminer.xyz:65500")
 	if err != nil {
 		log.Fatalln("Error resolving TCP address:", err)
@@ -116,11 +111,37 @@ func run() {
 
 var fConnections = flag.Int("connections", 1, "number of connections to make")
 var fSpread = flag.Duration("spread", 100*time.Millisecond, "time to wait between connections")
+var fModules = flag.String("modules", "", "comma-separated list of modules to use")
+var fModuleCount = flag.Int("module-count", 1, "number of modules to use")
 
 func main() {
 	flag.Parse()
 
 	wg := sync.WaitGroup{}
+
+	modules := make([]packets.ModuleInfo, 0)
+	if *fModules != "" {
+		for _, module := range strings.Split(*fModules, ",") {
+			parts := strings.Split(module, ":")
+			if len(parts) != 2 {
+				log.Fatalf("invalid module: %s", module)
+			}
+
+			modules = append(modules, packets.ModuleInfo{
+				Module:  parts[0],
+				Version: parts[1],
+			})
+		}
+	}
+
+	if len(modules) == 0 {
+		for i := 0; i < *fModuleCount; i++ {
+			modules = append(modules, packets.ModuleInfo{
+				Module:  fmt.Sprint("module", i),
+				Version: "1.0.0",
+			})
+		}
+	}
 
 	for i := 0; i < *fConnections; i++ {
 		wg.Add(1)
@@ -133,7 +154,7 @@ func main() {
 				}
 			}()
 
-			run()
+			run(modules)
 		}()
 
 		time.Sleep(*fSpread)
