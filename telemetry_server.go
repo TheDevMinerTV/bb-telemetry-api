@@ -16,17 +16,17 @@ func NewTelemetryServer() *TelemetryServer {
 func (s *TelemetryServer) Listen(rawAddr string) error {
 	addr, err := net.ResolveTCPAddr("tcp", rawAddr)
 	if err != nil {
-		log.Println("Error resolving TCP address:", err)
+		log.Println("failed to resolve telemetry listener address:", err)
 		return err
 	}
 
 	conn, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		log.Println("Error creating TCP connection:", err)
+		log.Println("failed to listen for telemetry:", err)
 		return err
 	}
 
-	log.Println("Listening for telemetry on", addr)
+	log.Println("listening for telemetry on", addr)
 
 	s.listener = conn
 
@@ -41,15 +41,15 @@ func (s *TelemetryServer) run() {
 	for {
 		conn, err := s.listener.AcceptTCP()
 		if err != nil {
-			log.Println("Error accepting TCP connection:", err)
+			log.Println("failed to accept telemetry connection:", err)
 			continue
 		}
 
-		log.Println("New TCP connection from", conn.RemoteAddr())
+		log.Printf("accepted telemetry connection from %s", conn.RemoteAddr())
 
 		sock, err := NewTelemetrySocket(conn)
 		if err != nil {
-			log.Println("Error creating telemetry socket:", err)
+			log.Printf("failed to create telemetry socket from %s: %s", conn.RemoteAddr(), err)
 			continue
 		}
 

@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 )
 
 type PacketType byte
@@ -63,7 +62,6 @@ func (p *Wrapped) Encode() []byte {
 	inner := p.Inner.Encode()
 
 	length := 1 + len(inner)
-	log.Printf("length: %d", length)
 
 	buf := make([]byte, 2+length)
 

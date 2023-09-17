@@ -63,12 +63,12 @@ func (s *TelemetrySocket) handle() {
 	}()
 
 	if err := s.conn.SetKeepAlive(true); err != nil {
-		log.Printf("Error setting TCP keepalive for %s: %s", s.addr, err)
+		log.Printf("failed to enable TCP keepalive for %s: %s", s.addr, err)
 		return
 	}
 
 	if err := s.conn.SetKeepAlivePeriod(5 * time.Second); err != nil {
-		log.Printf("Error setting TCP keepalive period for %s: %s", s.addr, err)
+		log.Printf("failed to set TCP keepalive period for %s: %s", s.addr, err)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (s *TelemetrySocket) handle() {
 	for {
 		n, err := s.conn.Read(buffer)
 		if err != nil {
-			log.Printf("Error reading TCP data from %s: %s", s.addr, err)
+			log.Printf("failed to read from %s: %s", s.addr, err)
 			return
 		}
 
@@ -95,23 +95,17 @@ func (s *TelemetrySocket) handle() {
 			}
 
 			toParse = toParse[2:]
-			log.Printf("Received %d bytes from %s", length, s.addr)
 			data := toParse[:length]
 			toParse = toParse[length:]
 
-			log.Printf("data: %+v", data)
-			log.Printf("toParse: %+v", toParse)
-
 			packet, err := packets.Parse(data)
 			if err != nil {
-				log.Printf("Error parsing packet from %s: %s", s.addr, err)
+				log.Printf("failed to parse packet from %s: %s", s.addr, err)
 				continue
 			}
 
 			switch packet.Inner.Type() {
 			case packets.HandshakeRequestPacket:
-				log.Printf("Received handshake request from %s", s.addr)
-
 				inner := packet.Inner.(*packets.HandshakeRequest)
 				s.handshakeData = &HandshakeData{
 					name:    inner.Module,
@@ -122,37 +116,35 @@ func (s *TelemetrySocket) handle() {
 				h.Write([]byte(inner.Module + ":" + inner.Version))
 				s.expectedKey = h.Sum(nil)
 
-				log.Printf("key: %+v", s.key)
-				log.Printf("expected hmac: %+v", s.expectedKey)
 				p2 := packets.NewWrapped(packets.NewHandshakeResponse(s.key))
 				if _, err := s.conn.Write(p2.Encode()); err != nil {
-					log.Printf("Error writing handshake response to %s: %s", s.addr, err)
+					log.Printf("failed to write handshake response to %s: %s", s.addr, err)
+					return
 				}
 
 			case packets.StartRequestPacket:
-				log.Printf("Received start request from %s", s.addr)
-
 				inner := packet.Inner.(*packets.StartRequest)
 				s.valid = hmac.Equal(inner.HMAC[:], s.expectedKey)
 
 				if s.valid {
-					log.Printf("HMAC from %s is valid", s.addr)
+					log.Printf("%s successfully authenticated", s.addr)
 
 					runningInstances.With(map[string]string{
 						"module":  s.handshakeData.name,
 						"version": s.handshakeData.version,
 					}).Inc()
 				} else {
-					log.Printf("HMAC from %s is invalid", s.addr)
+					log.Printf("%s failed to authenticate", s.addr)
 				}
 
 				p2 := packets.NewWrapped(&packets.StartResponse{})
 				if _, err := s.conn.Write(p2.Encode()); err != nil {
-					log.Printf("Error writing start response to %s: %s", s.addr, err)
+					log.Printf("failed to write start response to %s: %s", s.addr, err)
+					return
 				}
 
 			case packets.HeartbeatRequestPacket:
-				log.Printf("Received heartbeat request from %s", s.addr)
+				log.Printf("%s sent heartbeat", s.addr)
 			}
 		}
 	}
