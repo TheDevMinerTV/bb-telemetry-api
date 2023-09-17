@@ -3,7 +3,6 @@ package packets
 import (
 	"encoding/binary"
 	"io"
-	"log"
 )
 
 type ModuleInfo struct {
@@ -63,7 +62,6 @@ func (p *HandshakeRequest) Encode() []byte {
 	offset += 2
 
 	for _, module := range p.Modules {
-		log.Printf("module: %s", module.String())
 		offset = module.Encode(buf, offset)
 	}
 
