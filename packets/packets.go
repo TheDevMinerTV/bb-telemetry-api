@@ -62,6 +62,7 @@ func Parse(raw []byte) (p *Wrapped, err error) {
 		p.Inner, err = DecodeStartResponse()
 
 	case HeartbeatRequestPacket:
+		p.Inner, err = DecodeHeartbeatRequest()
 
 	default:
 		err = fmt.Errorf("unknown packet type: %d", typ)

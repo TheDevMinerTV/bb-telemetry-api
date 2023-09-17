@@ -105,7 +105,12 @@ func run() {
 	log.Printf("got start response")
 
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(30 * time.Second)
+
+		p = packets.NewWrapped(&packets.HeartbeatRequest{}).Encode()
+		if _, err := conn.Write(p); err != nil {
+			log.Fatalln("Error writing heartbeat request:", err)
+		}
 	}
 }
 
@@ -122,6 +127,11 @@ func main() {
 
 		go func() {
 			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					log.Printf("panic: %v", err)
+				}
+			}()
 
 			run()
 		}()
