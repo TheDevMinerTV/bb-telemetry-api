@@ -3,11 +3,45 @@ package packets
 import (
 	"encoding/binary"
 	"io"
+	"log"
 )
 
-type HandshakeRequest struct {
+type ModuleInfo struct {
 	Module  string
 	Version string
+}
+
+func (m *ModuleInfo) EncodedLen() int {
+	return encodedStringLength(m.Module) + encodedStringLength(m.Version)
+}
+
+func (m *ModuleInfo) String() string {
+	return m.Module + " " + m.Version
+}
+
+func readModuleInfo(raw []byte) (*ModuleInfo, int, error) {
+	module, length, err := readString(raw, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	version, length, err := readString(raw, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &ModuleInfo{Module: module, Version: version}, length, nil
+}
+
+func (m *ModuleInfo) Encode(buf []byte, offset int) int {
+	offset = writeString(buf, offset, m.Module)
+	offset = writeString(buf, offset, m.Version)
+
+	return offset
+}
+
+type HandshakeRequest struct {
+	Modules []ModuleInfo
 }
 
 func (p *HandshakeRequest) Type() PacketType {
@@ -15,20 +49,23 @@ func (p *HandshakeRequest) Type() PacketType {
 }
 
 func (p *HandshakeRequest) Encode() []byte {
-	moduleLen := len(p.Module)
-	versionLen := len(p.Version)
+	moduleCount := len(p.Modules)
+	length := 2
 
-	buf := make([]byte, 2+len(p.Module)+2+len(p.Version))
+	for _, module := range p.Modules {
+		length += module.EncodedLen()
+	}
+
 	offset := 0
 
-	binary.BigEndian.PutUint16(buf[0:], uint16(moduleLen))
+	buf := make([]byte, length)
+	binary.BigEndian.PutUint16(buf[offset:], uint16(moduleCount))
 	offset += 2
-	copy(buf[2:], p.Module)
-	offset += moduleLen
 
-	binary.BigEndian.PutUint16(buf[offset:], uint16(versionLen))
-	offset += 2
-	copy(buf[offset:], p.Version)
+	for _, module := range p.Modules {
+		log.Printf("module: %s", module.String())
+		offset = module.Encode(buf, offset)
+	}
 
 	return buf
 }
@@ -37,30 +74,23 @@ func DecodeHandshakeRequest(raw []byte) (*HandshakeRequest, error) {
 	if len(raw) < 2 {
 		return nil, io.ErrUnexpectedEOF
 	}
-	moduleLength := binary.BigEndian.Uint16(raw[:2])
+
+	moduleCount := binary.BigEndian.Uint16(raw[:2])
 	raw = raw[2:]
 
-	if len(raw) < int(moduleLength) {
-		return nil, io.ErrUnexpectedEOF
-	}
-	module := string(raw[:moduleLength])
-	raw = raw[moduleLength:]
-	if len(raw) < 2 {
-		return nil, io.ErrUnexpectedEOF
-	}
+	modules := make([]ModuleInfo, moduleCount)
 
-	versionLength := binary.BigEndian.Uint16(raw[:2])
-	raw = raw[2:]
-	if len(raw) < int(versionLength) {
-		return nil, io.ErrUnexpectedEOF
+	for i := 0; i < int(moduleCount); i++ {
+		module, length, err := readModuleInfo(raw)
+		if err != nil {
+			return nil, err
+		}
+
+		raw = raw[length:]
+		modules[i] = *module
 	}
 
-	version := string(raw[:versionLength])
-
-	return &HandshakeRequest{
-		Module:  module,
-		Version: version,
-	}, nil
+	return &HandshakeRequest{Modules: modules}, nil
 }
 
 type HandshakeResponse struct {

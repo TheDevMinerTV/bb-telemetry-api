@@ -3,6 +3,7 @@ package packets
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 )
 
 /*
@@ -93,4 +94,35 @@ func (p *Wrapped) Encode() []byte {
 	copy(buf[DataLengthSize+PacketTypeLength:], inner)
 
 	return buf
+}
+
+func encodedStringLength(s string) int {
+	return 2 + len(s)
+}
+
+func writeString(buf []byte, offset int, s string) int {
+	strLen := len(s)
+
+	binary.BigEndian.PutUint16(buf[offset:], uint16(strLen))
+	offset += 2
+
+	copy(buf[offset:], s)
+	offset += strLen
+
+	return offset
+}
+
+func readString(buf []byte, offset int) (string, int, error) {
+	if len(buf) < offset+2 {
+		return "", 0, io.ErrUnexpectedEOF
+	}
+
+	strLen := int(binary.BigEndian.Uint16(buf[offset:]))
+	offset += 2
+
+	if len(buf) < offset+strLen {
+		return "", 0, io.ErrUnexpectedEOF
+	}
+
+	return string(buf[offset : offset+strLen]), offset + strLen, nil
 }

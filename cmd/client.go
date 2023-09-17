@@ -4,17 +4,20 @@ import (
 	"bb-telemetry-api/packets"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"log"
 	"net"
 	"time"
 )
 
-const (
-	Module  = "tes3t"
-	Version = "1.0.30"
-)
-
 func main() {
+	modules := []packets.ModuleInfo{
+		{
+			Module:  "test",
+			Version: "1.0.0",
+		},
+	}
+
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:65500")
 	if err != nil {
 		log.Fatalln("Error resolving TCP address:", err)
@@ -26,9 +29,9 @@ func main() {
 	}
 
 	p := packets.NewWrapped(&packets.HandshakeRequest{
-		Module:  Module,
-		Version: Version,
+		Modules: modules,
 	}).Encode()
+	log.Printf("handshake request: %s", hex.EncodeToString(p))
 	if _, err := conn.Write(p); err != nil {
 		log.Fatalln("Error writing handshake request:", err)
 	}
@@ -57,7 +60,9 @@ func main() {
 
 	log.Printf("key: %+v", p3.Key)
 	h := hmac.New(sha256.New, p3.Key[:])
-	h.Write([]byte(Module + ":" + Version))
+	for _, module := range modules {
+		h.Write([]byte(module.String()))
+	}
 	hc := h.Sum(nil)
 	log.Printf("hmac: %+v", hc)
 

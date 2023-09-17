@@ -22,8 +22,7 @@ type TelemetrySocket struct {
 }
 
 type HandshakeData struct {
-	name    string
-	version string
+	Modules []packets.ModuleInfo
 }
 
 func generateKey() ([32]byte, error) {
@@ -54,10 +53,12 @@ func NewTelemetrySocket(conn *net.TCPConn) (*TelemetrySocket, error) {
 func (s *TelemetrySocket) handle() {
 	defer func() {
 		if s.handshakeData != nil {
-			runningInstances.With(map[string]string{
-				"module":  s.handshakeData.name,
-				"version": s.handshakeData.version,
-			}).Dec()
+			for _, module := range s.handshakeData.Modules {
+				runningInstances.With(map[string]string{
+					"module":  module.Module,
+					"version": module.Version,
+				}).Dec()
+			}
 		}
 	}()
 
@@ -66,7 +67,7 @@ func (s *TelemetrySocket) handle() {
 		return
 	}
 
-	if err := s.conn.SetKeepAlivePeriod(5 * time.Second); err != nil {
+	if err := s.conn.SetKeepAlivePeriod(30 * time.Second); err != nil {
 		log.Printf("failed to set TCP keepalive period for %s: %s", s.addr, err)
 		return
 	}
@@ -110,12 +111,13 @@ func (s *TelemetrySocket) handle() {
 			case packets.HandshakeRequestPacket:
 				inner := packet.Inner.(*packets.HandshakeRequest)
 				s.handshakeData = &HandshakeData{
-					name:    inner.Module,
-					version: inner.Version,
+					Modules: inner.Modules,
 				}
 
 				h := hmac.New(sha256.New, s.key[:])
-				h.Write([]byte(inner.Module + ":" + inner.Version))
+				for _, module := range inner.Modules {
+					h.Write([]byte(module.String()))
+				}
 				s.expectedKey = h.Sum(nil)
 
 				p2 := packets.NewWrapped(packets.NewHandshakeResponse(s.key))
@@ -131,10 +133,12 @@ func (s *TelemetrySocket) handle() {
 				if s.valid {
 					log.Printf("%s successfully authenticated", s.addr)
 
-					runningInstances.With(map[string]string{
-						"module":  s.handshakeData.name,
-						"version": s.handshakeData.version,
-					}).Inc()
+					for _, module := range s.handshakeData.Modules {
+						runningInstances.With(map[string]string{
+							"module":  module.Module,
+							"version": module.Version,
+						}).Inc()
+					}
 				} else {
 					log.Printf("%s failed to authenticate", s.addr)
 				}
