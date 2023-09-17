@@ -4,7 +4,6 @@ import (
 	"bb-telemetry-api/packets"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/binary"
 	"log"
 	"net"
 	"time"
@@ -44,15 +43,20 @@ func main() {
 
 	data := buf[:n]
 
-	length := binary.BigEndian.Uint16(data[:2])
-	typ := int(data[2])
-	if typ != int(packets.HandshakeResponsePacket) {
-		log.Fatalln("Error: expected handshake response, got", typ)
+	data = data[packets.DataLengthSize:]
+	p2, err := packets.Parse(data)
+	if err != nil {
+		log.Fatalln("Error parsing handshake response:", err)
 	}
 
-	key := data[3 : length+2]
-	log.Printf("key: %+v", key)
-	h := hmac.New(sha256.New, key)
+	if p2.Inner.Type() != packets.HandshakeResponsePacket {
+		log.Fatalln("Error: expected handshake response, got", p2.Inner.Type())
+	}
+
+	p3 := p2.Inner.(*packets.HandshakeResponse)
+
+	log.Printf("key: %+v", p3.Key)
+	h := hmac.New(sha256.New, p3.Key[:])
 	h.Write([]byte(Module + ":" + Version))
 	hc := h.Sum(nil)
 	log.Printf("hmac: %+v", hc)
@@ -73,10 +77,14 @@ func main() {
 
 	data = buf[:n]
 
-	length = binary.BigEndian.Uint16(data[:2])
-	typ = int(data[2])
-	if typ != int(packets.StartResponsePacket) {
-		log.Fatalln("Error: expected start response, got", typ)
+	data = data[packets.DataLengthSize:]
+	p2, err = packets.Parse(data)
+	if err != nil {
+		log.Fatalln("Error parsing start response:", err)
+	}
+
+	if p2.Inner.Type() != packets.StartResponsePacket {
+		log.Fatalln("Error: expected start response, got", p2.Inner.Type())
 	}
 
 	log.Printf("got start response")

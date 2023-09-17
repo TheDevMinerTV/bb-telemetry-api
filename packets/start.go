@@ -41,3 +41,7 @@ func (p *StartResponse) Type() PacketType {
 func (p *StartResponse) Encode() []byte {
 	return []byte{}
 }
+
+func DecodeStartResponse() (*StartResponse, error) {
+	return &StartResponse{}, nil
+}

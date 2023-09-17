@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"log"
 	"net"
 	"time"
@@ -85,24 +84,27 @@ func (s *TelemetrySocket) handle() {
 		toParse = append(toParse, buffer[:n]...)
 
 		for {
-			if len(toParse) < 2 {
+			if len(toParse) < packets.DataLengthSize {
 				break
 			}
 
-			length := binary.BigEndian.Uint16(toParse[:2])
-			if int(length) > len(toParse)-2 {
+			length := packets.ReadLength(toParse)
+			if length > len(toParse)-packets.DataLengthSize+packets.PacketTypeLength {
+				log.Printf("packet from %s is too short: need %d bytes, have %d bytes", s.addr, length+packets.DataLengthSize+packets.PacketTypeLength, len(toParse))
 				break
 			}
 
-			toParse = toParse[2:]
-			data := toParse[:length]
-			toParse = toParse[length:]
+			toParse = toParse[packets.DataLengthSize:]
+			data := toParse[:packets.PacketTypeLength+length]
+			toParse = toParse[packets.PacketTypeLength+length:]
 
 			packet, err := packets.Parse(data)
 			if err != nil {
 				log.Printf("failed to parse packet from %s: %s", s.addr, err)
 				continue
 			}
+
+			log.Printf("received packet from %s: %+v", s.addr, packet.Inner)
 
 			switch packet.Inner.Type() {
 			case packets.HandshakeRequestPacket:

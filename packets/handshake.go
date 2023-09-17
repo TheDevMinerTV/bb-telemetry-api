@@ -15,12 +15,20 @@ func (p *HandshakeRequest) Type() PacketType {
 }
 
 func (p *HandshakeRequest) Encode() []byte {
-	buf := make([]byte, 4+len(p.Module)+len(p.Version))
+	moduleLen := len(p.Module)
+	versionLen := len(p.Version)
 
-	binary.BigEndian.PutUint16(buf[0:], uint16(len(p.Module)))
+	buf := make([]byte, 2+len(p.Module)+2+len(p.Version))
+	offset := 0
+
+	binary.BigEndian.PutUint16(buf[0:], uint16(moduleLen))
+	offset += 2
 	copy(buf[2:], p.Module)
-	binary.BigEndian.PutUint16(buf[2+len(p.Module):], uint16(len(p.Version)))
-	copy(buf[4+len(p.Module):], p.Version)
+	offset += moduleLen
+
+	binary.BigEndian.PutUint16(buf[offset:], uint16(versionLen))
+	offset += 2
+	copy(buf[offset:], p.Version)
 
 	return buf
 }
@@ -29,13 +37,12 @@ func DecodeHandshakeRequest(raw []byte) (*HandshakeRequest, error) {
 	if len(raw) < 2 {
 		return nil, io.ErrUnexpectedEOF
 	}
-
 	moduleLength := binary.BigEndian.Uint16(raw[:2])
 	raw = raw[2:]
+
 	if len(raw) < int(moduleLength) {
 		return nil, io.ErrUnexpectedEOF
 	}
-
 	module := string(raw[:moduleLength])
 	raw = raw[moduleLength:]
 	if len(raw) < 2 {
@@ -74,4 +81,15 @@ func (p *HandshakeResponse) Encode() []byte {
 	copy(buf[0:], p.Key[:])
 
 	return buf
+}
+
+func DecodeHandshakeResponse(raw []byte) (*HandshakeResponse, error) {
+	if len(raw) < 32 {
+		return nil, io.ErrUnexpectedEOF
+	}
+
+	var key [32]byte
+	copy(key[:], raw[:32])
+
+	return &HandshakeResponse{Key: key}, nil
 }
