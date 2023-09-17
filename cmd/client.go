@@ -5,12 +5,14 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"flag"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
-func main() {
+func run() {
 	modules := []packets.ModuleInfo{
 		{
 			Module:  "test",
@@ -18,7 +20,7 @@ func main() {
 		},
 	}
 
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:65500")
+	addr, err := net.ResolveTCPAddr("tcp", "raw.devminer.xyz:65500")
 	if err != nil {
 		log.Fatalln("Error resolving TCP address:", err)
 	}
@@ -26,6 +28,14 @@ func main() {
 	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
 		log.Fatalln("Error creating TCP connection:", err)
+	}
+
+	if err := conn.SetKeepAlive(true); err != nil {
+		log.Fatalln("Error setting keep alive:", err)
+	}
+
+	if err := conn.SetKeepAlivePeriod(10 * time.Second); err != nil {
+		log.Fatalln("Error setting keep alive period:", err)
 	}
 
 	p := packets.NewWrapped(&packets.HandshakeRequest{
@@ -97,4 +107,27 @@ func main() {
 	for {
 		time.Sleep(1 * time.Second)
 	}
+}
+
+var fConnections = flag.Int("connections", 1, "number of connections to make")
+var fSpread = flag.Duration("spread", 100*time.Millisecond, "time to wait between connections")
+
+func main() {
+	flag.Parse()
+
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < *fConnections; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			run()
+		}()
+
+		time.Sleep(*fSpread)
+	}
+
+	wg.Wait()
 }

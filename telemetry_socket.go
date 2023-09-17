@@ -67,7 +67,7 @@ func (s *TelemetrySocket) handle() {
 		return
 	}
 
-	if err := s.conn.SetKeepAlivePeriod(30 * time.Second); err != nil {
+	if err := s.conn.SetKeepAlivePeriod(10 * time.Second); err != nil {
 		log.Printf("failed to set TCP keepalive period for %s: %s", s.addr, err)
 		return
 	}
