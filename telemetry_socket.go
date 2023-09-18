@@ -137,7 +137,11 @@ func (s *TelemetrySocket) handle() {
 
 				h := hmac.New(sha256.New, s.key[:])
 				for _, module := range inner.Modules {
-					h.Write([]byte(module.String()))
+					moduleBytes := []byte(module.String())
+					if s.verbose {
+						log.Printf("module bytes %s: %s", module.String(), hex.EncodeToString(moduleBytes))
+					}
+					h.Write(moduleBytes)
 				}
 				s.expectedKey = h.Sum(nil)
 
