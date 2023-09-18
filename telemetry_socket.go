@@ -56,6 +56,10 @@ func NewTelemetrySocket(conn *net.TCPConn, verbose bool) (*TelemetrySocket, erro
 
 func (s *TelemetrySocket) handle() {
 	defer func() {
+		if !s.valid {
+			return
+		}
+
 		if s.handshakeData != nil {
 			for _, module := range s.handshakeData.Modules {
 				runningInstances.With(map[string]string{
