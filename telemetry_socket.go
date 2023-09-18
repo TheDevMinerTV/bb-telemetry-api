@@ -65,6 +65,11 @@ func (s *TelemetrySocket) handle() {
 			}
 		}
 	}()
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic in telemetry socket from %s: %s", s.addr, err)
+		}
+	}()
 
 	if err := s.conn.SetKeepAlive(true); err != nil {
 		log.Printf("failed to enable TCP keepalive for %s: %s", s.addr, err)

@@ -56,14 +56,6 @@ func (s *TelemetryServer) run() {
 			continue
 		}
 
-		go func() {
-			defer func() {
-				if err := recover(); err != nil {
-					log.Println("Error handling telemetry socket:", err)
-				}
-			}()
-
-			sock.handle()
-		}()
+		go sock.handle()
 	}
 }
