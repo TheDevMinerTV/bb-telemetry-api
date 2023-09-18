@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"log"
 	"net"
 	"time"
@@ -131,6 +132,10 @@ func (s *TelemetrySocket) handle() {
 				}
 				s.expectedKey = h.Sum(nil)
 
+				if s.verbose {
+					log.Printf("sent key to %s: %s", s.addr, hex.EncodeToString(s.key[:]))
+				}
+
 				p2 := packets.NewWrapped(packets.NewHandshakeResponse(s.key))
 				if _, err := s.conn.Write(p2.Encode()); err != nil {
 					log.Printf("failed to write handshake response to %s: %s", s.addr, err)
@@ -155,6 +160,8 @@ func (s *TelemetrySocket) handle() {
 				} else {
 					if s.verbose {
 						log.Printf("%s failed to authenticate", s.addr)
+						log.Printf("expected: %s", hex.EncodeToString(s.expectedKey))
+						log.Printf("got:      %s", hex.EncodeToString(inner.HMAC[:]))
 					}
 				}
 
