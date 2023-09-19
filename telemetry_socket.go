@@ -62,9 +62,10 @@ func (s *TelemetrySocket) handle() {
 
 		if s.handshakeData != nil {
 			for _, module := range s.handshakeData.Modules {
-				runningInstances.With(map[string]string{
-					"module":  module.Module,
+				runningModules.With(map[string]string{
+					"name":    module.Name,
 					"version": module.Version,
+					"hash":    module.Hash,
 				}).Dec()
 			}
 		}
@@ -165,9 +166,10 @@ func (s *TelemetrySocket) handle() {
 					}
 
 					for _, module := range s.handshakeData.Modules {
-						runningInstances.With(map[string]string{
-							"module":  module.Module,
+						runningModules.With(map[string]string{
+							"name":    module.Name,
 							"version": module.Version,
+							"hash":    module.Hash,
 						}).Inc()
 					}
 				} else {
