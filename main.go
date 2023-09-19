@@ -18,6 +18,13 @@ var (
 		Help:      "The total number of running modules separated by module, version and hash",
 	}, []string{"name", "version", "hash"})
 
+	currentConnections = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "battlebit",
+		Subsystem: "telemetry",
+		Name:      "current_connections",
+		Help:      "The total number of API runners using the Telemetry module",
+	})
+
 	fTelemetryAddr = flag.String("telemetry-addr", "127.0.0.1:65500", "The address to listen for telemetry connections on")
 	fMetricsAddr   = flag.String("metrics-addr", "127.0.0.1:65501", "The address to listen for metrics requests on")
 	fVerbose       = flag.Bool("verbose", false, "Whether to log verbose messages")
@@ -27,7 +34,7 @@ func main() {
 	flag.Parse()
 
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(runningModules)
+	registry.MustRegister(runningModules, currentConnections)
 
 	telemetry := NewTelemetryServer(*fVerbose)
 	if err := telemetry.Listen(*fTelemetryAddr); err != nil {
