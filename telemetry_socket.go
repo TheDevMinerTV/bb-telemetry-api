@@ -60,11 +60,14 @@ func (s *TelemetrySocket) handle() {
 			return
 		}
 
+		currentConnections.Dec()
+
 		if s.handshakeData != nil {
 			for _, module := range s.handshakeData.Modules {
-				runningInstances.With(map[string]string{
-					"module":  module.Module,
+				runningModules.With(map[string]string{
+					"name":    module.Name,
 					"version": module.Version,
+					"hash":    module.Hash,
 				}).Dec()
 			}
 		}
@@ -165,11 +168,14 @@ func (s *TelemetrySocket) handle() {
 					}
 
 					for _, module := range s.handshakeData.Modules {
-						runningInstances.With(map[string]string{
-							"module":  module.Module,
+						runningModules.With(map[string]string{
+							"name":    module.Name,
 							"version": module.Version,
+							"hash":    module.Hash,
 						}).Inc()
 					}
+
+					currentConnections.Inc()
 				} else {
 					if s.verbose {
 						log.Printf("%s failed to authenticate", s.addr)

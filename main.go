@@ -2,20 +2,28 @@ package main
 
 import (
 	"flag"
+	"log"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"log"
-	"net/http"
 )
 
 var (
-	runningInstances = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	runningModules = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "battlebit",
 		Subsystem: "telemetry",
-		Name:      "running_instances",
-		Help:      "The total number of running instances separated by module and version",
-	}, []string{"module", "version"})
+		Name:      "running_modules",
+		Help:      "The total number of running modules separated by module, version and hash",
+	}, []string{"name", "version", "hash"})
+
+	currentConnections = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "battlebit",
+		Subsystem: "telemetry",
+		Name:      "current_connections",
+		Help:      "The total number of API runners using the Telemetry module",
+	})
 
 	fTelemetryAddr = flag.String("telemetry-addr", "127.0.0.1:65500", "The address to listen for telemetry connections on")
 	fMetricsAddr   = flag.String("metrics-addr", "127.0.0.1:65501", "The address to listen for metrics requests on")
@@ -26,7 +34,7 @@ func main() {
 	flag.Parse()
 
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(runningInstances)
+	registry.MustRegister(runningModules, currentConnections)
 
 	telemetry := NewTelemetryServer(*fVerbose)
 	if err := telemetry.Listen(*fTelemetryAddr); err != nil {

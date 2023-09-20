@@ -6,20 +6,21 @@ import (
 )
 
 type ModuleInfo struct {
-	Module  string
+	Name    string
 	Version string
+	Hash    string
 }
 
 func (m *ModuleInfo) EncodedLen() int {
-	return encodedStringLength(m.Module) + encodedStringLength(m.Version)
+	return encodedStringLength(m.Name) + encodedStringLength(m.Version)
 }
 
 func (m *ModuleInfo) String() string {
-	return m.Module + " " + m.Version
+	return m.Name + " " + m.Version + " " + m.Hash
 }
 
 func readModuleInfo(raw []byte) (*ModuleInfo, int, error) {
-	module, length, err := readString(raw, 0)
+	name, length, err := readString(raw, 0)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -29,12 +30,18 @@ func readModuleInfo(raw []byte) (*ModuleInfo, int, error) {
 		return nil, 0, err
 	}
 
-	return &ModuleInfo{Module: module, Version: version}, length, nil
+	hash, length, err := readString(raw, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &ModuleInfo{Name: name, Version: version, Hash: hash}, length, nil
 }
 
 func (m *ModuleInfo) Encode(buf []byte, offset int) int {
-	offset = writeString(buf, offset, m.Module)
+	offset = writeString(buf, offset, m.Name)
 	offset = writeString(buf, offset, m.Version)
+	offset = writeString(buf, offset, m.Hash)
 
 	return offset
 }
