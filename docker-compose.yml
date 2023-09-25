@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  v0:
+    image: bbtel
+    ports:
+      - 65500:65500
+      - 65501:65501
+    command:
+      - -verbose
+
+  v1:
+    image: bbtel-dev
+    ports:
+      - 65502:65500
+      - 65503:65501
+    command:
+      - -verbose
